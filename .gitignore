@@ -2,3 +2,6 @@ iso
 *.o
 *.bin
 *.iso
+os.log
+.kdev4
+*.kdev4

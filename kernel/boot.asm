@@ -12,6 +12,7 @@ align 4
 	dd MBFLAGS
 	dd CHECKSUM
 
+global stack_top
 section .bss
 align 16
 stack_bottom:
