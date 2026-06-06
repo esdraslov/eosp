@@ -289,6 +289,59 @@ void kernel_main(void)
 	u32_str((uint32_t)inb(0x21), &buffer);
 	terminal_writestring(&buffer);
 }
+// void kernel_main(void) 
+// {
+// 	terminal_initialize();
+	
+// 	// READ THE ORIGINAL GDT FROM GRUB
+// 	uint16_t gdtr_limit;
+// 	uint32_t gdtr_base;
+	
+// 	__asm__ __volatile__("sgdt %0" : "=m"(gdtr_limit));
+// 	// The above only gets the limit, we need a different approach
+	
+// 	// Better way: read GDTR directly (requires inline asm)
+// 	struct {
+// 		uint16_t limit;
+// 		uint32_t base;
+// 	} __attribute__((packed)) gdtr;
+	
+// 	__asm__ __volatile__("sgdt %0" : "=m"(gdtr) : : "memory");
+	
+// 	terminal_writestring("Original GDTR Base: ");
+// 	char buf[16];
+// 	u32_str(gdtr.base, buf);
+// 	terminal_writestring(buf);
+// 	terminal_writestring("\n");
+	
+// 	terminal_writestring("Original GDTR Limit: ");
+// 	itoa(gdtr.limit, buf);
+// 	terminal_writestring(buf);
+// 	terminal_writestring("\n");
+	
+// 	// Now read the code segment descriptor from GRUB's GDT
+// 	terminal_writestring("Original Code Segment (offset 0x08):\n");
+// 	uint8_t *code_seg = (uint8_t*)(gdtr.base + 0x08);
+// 	for (int i = 0; i < 8; i++) {
+// 		itoa(code_seg[i], buf);
+// 		terminal_writestring(buf);
+// 		terminal_writestring(" ");
+// 	}
+// 	terminal_writestring("\n");
+	
+// 	terminal_writestring("Original Data Segment (offset 0x10):\n");
+// 	uint8_t *data_seg = (uint8_t*)(gdtr.base + 0x10);
+// 	for (int i = 0; i < 8; i++) {
+// 		itoa(data_seg[i], buf);
+// 		terminal_writestring(buf);
+// 		terminal_writestring(" ");
+// 	}
+// 	terminal_writestring("\n");
+	
+// 	// Set IDT and GDT
+// 	init_gdt(); // initialize the GDT
+// 	// ... rest of code
+// }
 
 void isr1_handler()
 {

@@ -4,10 +4,9 @@ extern stack_top
 gdt_flush:
     mov eax, [esp + 4]  ; Get the pointer to gdt_ptr from the C argument
     lgdt [eax]          ; Load the GDT
+    ret ; return right after for debugging porpuses
 
-    push 0x08
-    push .flush
-    retf  ; far return
+    jmp far 0x08:.flush     ; 0x08 is the offset to our code segment. Far jump!
 .flush:
     mov ax, 0x10        ; 0x10 is the offset to our data segment
     mov ds, ax          ; Load all data segment registers
