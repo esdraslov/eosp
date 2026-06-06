@@ -118,7 +118,7 @@ void itoa(uint32_t n, char *buffer)
 void idt_set_gate(int n, uint32_t handler)
 {
 	idt[n].offset_low = handler & 0xFFFF;
-	idt[n].selector = 0x08;
+	idt[n].selector = 0x10;
 	idt[n].zero = 0;
 	idt[n].flags = 0x8E;
 	idt[n].offset_high = (handler >> 16) & 0xFFFF;
@@ -189,7 +189,7 @@ void u32_str(uint32_t value, char *buffer)
 	while (value > 0)
 	{
 		temp[i++] = '0' + (value % 10);
-		value /= 100;
+		value /= 10;
 	}
 
 	int j = 0;
@@ -273,7 +273,7 @@ void kernel_main(void)
 	terminal_initialize();
 	// Set IDT and GDT
 	__asm__ __volatile__("cli"); // Disable interruptions (maybe important?)
-	init_gdt(); // initialize the GDT
+	//init_gdt(); // initialize the GDT no rmore
 	outb(0x20, 0xFF);
 	idtp.limit = sizeof(idt) - 1;
 	idtp.base = (uint32_t)&idt;
@@ -286,8 +286,14 @@ void kernel_main(void)
 	// Post-boot
 	char buffer;
 	terminal_writestring("EOSP booted successfully\n");
-	u32_str((uint32_t)inb(0x21), &buffer);
-	terminal_writestring(&buffer);
+	// u32_str((uint32_t)inb(0x21), &buffer);
+	// terminal_writestring(&buffer);
+	while(1) {
+		// uint8_t key = inb(KEYBOARD_DATA); // read
+		// u32_str(key, &buffer);
+		// terminal_writestring(&buffer);
+		// terminal_writestring("\n");
+	}
 }
 // void kernel_main(void) 
 // {

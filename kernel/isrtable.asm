@@ -22,26 +22,51 @@ isr1:
     popad
     iret
 
-
 picremap:
     mov al, 0x11 ; IWC 1
     out 0x20, al
+    mov al, 0
+    out 0x80, al
+    mov al, 0x11
     out 0xA0, al
+
+    mov al, 0
+    out 0x80, al
 
     mov al, 0x20 ; IWC 2
     out 0x21, al
+    mov al, 0
+    out 0x80, al
     mov al, 0x28
     out 0xA1, al
 
+    mov al, 0
+    out 0x80, al
+
     mov al, 0x4 ; IWC 3
     out 0x21, al
+    mov al, 0
+    out 0x80, al
     mov al, 0x2
     out 0xA1, al
 
+    mov al, 0
+    out 0x80, al
+
     mov al, 0x1 ; IWC 4
     out 0x21, al
+    mov al, 0
+    out 0x80, al
+    mov al, 1
     out 0xA1, al
+
+    mov al, 0
+    out 0x80, al
 
     mov al, 0x0 ; Unmasking
     out 0x21, al
+    mov al, 0
+    out 0x80, al
+    mov al, 0
     out 0xA1, al
+    ret
