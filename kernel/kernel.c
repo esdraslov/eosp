@@ -114,7 +114,8 @@ void init_gdt() {
 
 extern void picremap();
 
-char *cmd = "";
+char cmd[256];
+int pos = 0;
 
 void kernel_main(void) 
 {
@@ -133,6 +134,7 @@ void kernel_main(void)
 
 	// Post-boot
 	printf("EOSP booted successfully\n");
+	printf("> ");
 
 	while(1)
 	{}
@@ -167,15 +169,18 @@ void isr1_handler()
 
 		if (c == '\n')
 		{
+			cmd[pos] = '\0';
+			printf("\n");
 			process_command(cmd);
-			cmd = "";
+			pos = 0;
+			printf("> ");
 		} else if (c == '\b')
 		{
 			// still thinking on how to implement
 		} else if (c != 0)
 		{
-			cmd += c;
-			printf(&c);
+			cmd[pos++] = c;
+			printf("%c", c);
 		}
 	}
 }

@@ -37,8 +37,8 @@ void process_command(char *cmd)
     if (strcmp(cmd, "help") == 0)
     {
         printf("help - prints this text\n");
-        printf("reboot - reboots the device");
-        printf("halt - halts the system");
+        printf("reboot - reboots the device\n");
+        printf("halt - halts the system\n");
     } else if (strcmp(cmd, "reboot") == 0)
     {
         reboot();

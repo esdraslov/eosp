@@ -185,6 +185,11 @@ void printf(const char* format, ...)
                     }
                     break;
                 }
+				case 'c': {
+					char c = va_arg(args, char);
+					buffer[pos++] = c;
+					break;
+				}
                 case '%': {
                     buffer[pos++] = '%';
                 }
