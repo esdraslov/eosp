@@ -148,6 +148,8 @@ void terminal_writestring(const char* data)
 }
 
 // so here are methods that every single console program will probably use
+
+// prints
 void printf(const char* format, ...)
 {
     va_list args;
