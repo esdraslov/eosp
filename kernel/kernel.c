@@ -272,8 +272,8 @@ void kernel_main(void)
 {
 	terminal_initialize();
 	// Set IDT and GDT
-	init_gdt(); // initialize the GDT
 	__asm__ __volatile__("cli"); // Disable interruptions (maybe important?)
+	init_gdt(); // initialize the GDT
 	outb(0x20, 0xFF);
 	idtp.limit = sizeof(idt) - 1;
 	idtp.base = (uint32_t)&idt;
