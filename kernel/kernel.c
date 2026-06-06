@@ -164,7 +164,7 @@ void init_gdt() {
 		}
 		terminal_writestring("\n");
 	}
-	while(1) {}
+	//while(1) {}
 
     gdt_flush((uint32_t)&gdtp);
 }
