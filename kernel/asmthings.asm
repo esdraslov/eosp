@@ -10,8 +10,8 @@ gdt_flush:
     mov es, ax
     mov fs, ax
     mov gs, ax
-    ;mov ss, ax
-    ;mov esp, stack_top
+    mov ss, ax
+    mov esp, stack_top
     jmp 0x08:.flush     ; 0x08 is the offset to our code segment. Far jump!
 .flush:
     ret

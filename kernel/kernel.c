@@ -89,6 +89,32 @@ size_t strlen(const char* str)
 	return len;
 }
 
+void itoa(uint32_t n, char *buffer)
+{
+	char temp[16];
+	int i = 0 ;
+
+	if (n == 0)
+	{
+		buffer[0] = '0';
+		buffer[1] = '\0';
+		return;
+	}
+
+	while (n > 0)
+	{
+		temp[i++] = '0' + (n%10); 
+		n /= 10;
+	}
+
+	int j = 0;
+	while (i > 0) // put things in reverse is normal ig
+	{
+		buffer[j++] = temp[--i];
+	}
+	buffer[j] = '\0';
+}
+
 void idt_set_gate(int n, uint32_t handler)
 {
 	idt[n].offset_low = handler & 0xFFFF;
@@ -99,16 +125,15 @@ void idt_set_gate(int n, uint32_t handler)
 }
 
 void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
-    gdt[num].base_low    = (base & 0xFFFF);
-    gdt[num].base_middle = (base >> 16) & 0xFF;
-    gdt[num].base_high   = (base >> 24) & 0xFF;
-
-    gdt[num].limit_low   = (limit & 0xFFFF);
-    gdt[num].granularity = (limit >> 16) & 0x0F;
-
-    gdt[num].granularity |= gran & 0xF0;
-    gdt[num].access      = access;
+    gdt[num].limit_low    = (limit & 0xFFFF);
+    gdt[num].base_low     = (base & 0xFFFF);
+    gdt[num].base_middle  = (base >> 16) & 0xFF;
+    gdt[num].access       = access;
+    gdt[num].granularity  = ((limit >> 16) & 0x0F) | (gran & 0xF0);
+    gdt[num].base_high    = (base >> 24) & 0xFF;
 }
+
+void terminal_writestring(const char* data);
 
 void init_gdt() {
 	//while(1) {};
@@ -119,6 +144,27 @@ void init_gdt() {
     gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
     gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // Code segment
     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Data segment
+
+	terminal_writestring("GDT entries:\n");
+	for (int i = 0; i < 3; i++)
+	{
+		char buffer[16];
+		itoa(i, buffer);
+		terminal_writestring("gdt entry ");
+		terminal_writestring(buffer);// not sure if concatinating works :/
+		terminal_writestring("\n");
+
+		uint8_t *entry = (uint8_t*)(gdtp.base = i * 8);
+		for (int j = 0; j < 8;j++)
+		{
+			char buf[16]; // I still dont know why I always put 16 when other sizes probably works
+			itoa(entry[j], buf);
+			terminal_writestring(buf);
+			terminal_writestring(" ");
+		}
+		terminal_writestring("\n");
+	}
+	while(1) {}
 
     gdt_flush((uint32_t)&gdtp);
 }
