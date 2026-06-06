@@ -152,9 +152,9 @@ void init_gdt() {
 		itoa(i, buffer);
 		terminal_writestring("gdt entry ");
 		terminal_writestring(buffer);// not sure if concatinating works :/
-		terminal_writestring("\n");
+		terminal_writestring(": ");
 
-		uint8_t *entry = (uint8_t*)(gdtp.base = i * 8);
+		uint8_t *entry = (uint8_t*)(gdtp.base + i * 8);
 		for (int j = 0; j < 8;j++)
 		{
 			char buf[16]; // I still dont know why I always put 16 when other sizes probably works
