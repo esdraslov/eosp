@@ -4,6 +4,7 @@
 #include "ports.h"
 #include "stdlib.h"
 #include "shell.h"
+#include "cpu.h"
 
 #if defined(__linux__)
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
@@ -14,6 +15,7 @@
 // IRS methods
 extern void isr0();
 extern void isr1();
+extern void gpisr();
 
 // GDT methods
 extern void gdt_flush(uint32_t ptr);
@@ -128,6 +130,7 @@ void kernel_main(void)
 	idtp.base = (uint32_t)&idt;
 	idt_set_gate(33, (uint32_t)isr1);
 	idt_set_gate(32, (uint32_t)isr0);
+	idt_set_gate(13, (uint32_t)gpisr); // General Protection Fault thingy
 	__asm__ __volatile__("lidt %0" : : "m"(idtp));
 	picremap(); // this remaps the PIC
 	__asm__ __volatile__("sti"); // Enable interruptions (VERY IMPORTANT)
@@ -139,9 +142,20 @@ void kernel_main(void)
 	while(1)
 	{}
 
-	// I was going to fire and halt here, but I remembered that I don't need to cuz 
+	// I was going to halt and fire here, but I remembered that I don't need to cuz 
 	// boot.asm does that at the end of the kernel
 	// while(1) {}
+}
+
+// #GP or general protection fault
+void fault_handler(registers_t regs)
+{
+	terminal_initialize(); // reinitialize the terminal (aka clean it)
+	printf("---- #GP ----\n");
+	printf("something bad happened...\n\ndump:\n");
+	printf("ERR_CODE: %d\n", regs.err_code);
+	printf("INT_NUM: %d EIP: %d", regs.int_no, regs.eip);
+	haltsys(); // HALT THE SYSTEM
 }
 
 void isr1_handler()
