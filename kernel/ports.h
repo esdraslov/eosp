@@ -3,21 +3,21 @@
 
 #include <stdint.h>
 
-static inline uint8_t inb(uint16_t port)
+__attribute__((always_inline)) static inline uint8_t inb(uint16_t port)
 {
     uint8_t result;
-    __asm__ __volatile__("in %1, %0" : "=a"(result) : "Nd"(port));
+    __asm__ __volatile__("inb %%dx, %%al" : "=a"(result) : "d"(port));
     return result;
 }
 
-static inline void outb(uint16_t port, uint8_t value)
+__attribute__((always_inline)) static inline void outb(uint16_t port, uint8_t value)
 {
-    __asm__ __volatile__("out %0, %1" : : "a"(value), "Nd"(port));
+    __asm__ __volatile__("out %%al, %%dx" : : "a"(value), "d"(port));
 }
 
-static inline uint16_t inw(uint16_t port)
+__attribute__((always_inline)) static inline uint16_t inw(uint16_t port)
 {
-    uint8_t result;
+    uint16_t result;
     __asm__ __volatile__("inw %%dx, %%ax" : "=a"(result) : "d"(port));
     return result;
 }

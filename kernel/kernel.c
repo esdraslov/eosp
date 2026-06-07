@@ -116,8 +116,9 @@ void init_gdt() {
 
 extern void picremap();
 
-char cmd[256];
-int pos = 0;
+volatile char cmd[256];
+volatile int pos = 0;
+volatile bool pending = false;
 
 void kernel_main(void) 
 {
@@ -140,7 +141,14 @@ void kernel_main(void)
 	printf("> ");
 
 	while(1)
-	{}
+	{
+		if (pending)
+		{
+			process_command(cmd);
+			pending = false;
+			printf("> ");
+		}
+	}
 
 	// I was going to halt and fire here, but I remembered that I don't need to cuz 
 	// boot.asm does that at the end of the kernel
@@ -150,12 +158,13 @@ void kernel_main(void)
 // #GP or general protection fault
 void fault_handler(registers_t regs)
 {
-	terminal_initialize(); // reinitialize the terminal (aka clean it)
+	//terminal_initialize(); // reinitialize the terminal (aka clean it)
+	terminal_setcolor(vga_entry_color(VGA_COLOR_RED, VGA_COLOR_BLACK));
 	printf("---- #GP ----\n");
 	printf("something bad happened...\n\ndump:\n");
 	printf("ERR_CODE: %d\n", regs.err_code);
 	printf("INT_NUM: %d EIP: %d", regs.int_no, regs.eip);
-	haltsys(); // HALT THE SYSTEM
+	while(1) {__asm__ __volatile__("hlt");} // HALT THE SYSTEM
 }
 
 void isr1_handler()
@@ -185,9 +194,9 @@ void isr1_handler()
 		{
 			cmd[pos] = '\0';
 			printf("\n");
-			process_command(cmd);
+			// process_command(cmd);
+			pending = true;
 			pos = 0;
-			printf("> ");
 		} else if (c == '\b')
 		{
 			// still thinking on how to implement

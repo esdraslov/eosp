@@ -30,7 +30,7 @@ void haltsys(void)
     __asm__ __volatile__("cli");
     while(1)
     {
-        __asm__ __volatile("hlt");
+        __asm__ __volatile__("hlt");
     }
 }
 
@@ -66,6 +66,11 @@ void process_command(char *cmd)
         uint16_t buffer[512];
         ata_read_sector(0, buffer);
         dump_sector(buffer);
+        /*
+        for(int i=0; i<255; i++) my_buffer[i] = 0x4141; // 'AA'
+        my_buffer[255] = 0x0000; // Force a strict NULL terminator!
+        dump_sector(my_buffer);
+        */
     }
 }
 #endif
