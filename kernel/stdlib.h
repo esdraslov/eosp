@@ -42,6 +42,19 @@ void itoa(uint32_t n, char *buffer) // number to string
 	buffer[j] = '\0';
 }
 
+uint32_t atoi(const char *str) {
+    uint32_t res = 0;
+    for (int i = 0; str[i] != '\0'; ++i) {
+        // Make sure we only parse actual digits
+        if (str[i] >= '0' && str[i] <= '9') {
+            res = res * 10 + str[i] - '0';
+        } else {
+            break; // Stop if a non-numeric character is found
+        }
+    }
+    return res;
+}
+
 bool strcmp(const char *s1, const char *s2)
 {
     while (*s1 && *s1 == *s2)
@@ -50,6 +63,16 @@ bool strcmp(const char *s1, const char *s2)
         s2++;
     }
     return *s1 - *s2;
+}
+
+void *memset(void *s, int c, int n)
+{
+	unsigned char *p = s;
+	while (n--)
+	{
+		*p++ = (unsigned char)c;
+	}
+	return s;
 }
 
 // VGA methods here

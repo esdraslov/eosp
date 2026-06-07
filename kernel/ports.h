@@ -23,5 +23,10 @@ static inline uint16_t inw(uint16_t port) {
     return ret;
 }
 
+static inline void outw(uint16_t port, uint16_t val) {
+    // We cast port to a 32-bit integer internally to force a native 32-bit register selection
+    uint32_t port32 = port;
+    __asm__ volatile ("outw %w0, %w1" : : "a"(val), "d"(port32));
+}
 
 #endif
