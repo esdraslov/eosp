@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -m32 -ffreestanding -fno-stack-protector -g -O1 -Wall -Wextra -target i686-elf -fno-pie -no-pie
+CFLAGS = -m32 -ffreestanding -fno-stack-protector -g -O1 -Wall -Wextra -target i686-elf -fno-pie -no-pie -mno-sse -mno-sse2 -mno-mmx
 LDFLAGS = -m elf_i386
 
 ASM = nasm

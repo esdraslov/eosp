@@ -29,13 +29,13 @@ struct gdt_entry {
     uint8_t  granularity;   // Limit high nibble and flags (Size, Granularity)
     uint8_t  base_high;     // Last 8 bits of the base
 } __attribute__((packed));
-struct gdt_ptr {
-	uint16_t limit;
-	uint32_t base;
-} __attribute__((packed));
+// struct gdt_ptr {
+// 	uint16_t limit;
+// 	uint32_t base;
+// } __attribute__((packed));
 
-struct gdt_ptr gdtp;
-struct gdt_entry gdt[3];
+struct gdt_ptr gdtp __attribute__((aligned(16)));
+struct gdt_entry gdt[4] __attribute__((aligned(16)));
 
 // IDT
 struct idt_entry {
@@ -74,39 +74,19 @@ void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_
 }
 
 // who knows if I'll need this later
-void init_gdt() {
-	//while(1) {};
-    gdtp.limit = (sizeof(struct gdt_entry) * 3) - 1;
-	// gdtp.limit = 23;
-    gdtp.base  = (uint32_t)&gdt;
+// void init_gdt() {
+// 	//while(1) {};
+//     gdtp.limit = (sizeof(struct gdt_entry) * 4) - 1;
+// 	// gdtp.limit = 23;
+//     gdtp.base  = (uint32_t)&gdt;
 
-    gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
-    gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // Code segment
-    gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Data segment
+//     gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
+// 	gdt_set_gate(1, 0, 0, 0, 0);                // unused
+//     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x9A, 0xCF); // Code segment
+//     gdt_set_gate(3, 0, 0xFFFFFFFF, 0x92, 0xCF); // Data segment
 
-	terminal_writestring("GDT entries:\n");
-	for (int i = 0; i < 3; i++)
-	{
-		char buffer[16];
-		itoa(i, buffer);
-		terminal_writestring("gdt entry ");
-		terminal_writestring(buffer);// not sure if concatinating works :/
-		terminal_writestring(": ");
-
-		uint8_t *entry = (uint8_t*)(gdtp.base + i * 8);
-		for (int j = 0; j < 8;j++)
-		{
-			char buf[16]; // I still dont know why I always put 16 when other sizes probably works
-			itoa(entry[j], buf);
-			terminal_writestring(buf);
-			terminal_writestring(" ");
-		}
-		terminal_writestring("\n");
-	}
-	//while(1) {}
-
-    gdt_flush((uint32_t)&gdtp);
-}
+//     gdt_flush((uint32_t)&gdtp);
+// }
 
 // not really useful anymore
 // void io_wait()
@@ -114,7 +94,30 @@ void init_gdt() {
 // 	outb(0x80, 0);
 // }
 
+// We use a raw uint64_t array to bypass struct alignment entirely!
+uint64_t raw_gdt[4] __attribute__((aligned(16)));
+
+struct gdt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed)) gdtp __attribute__((aligned(16)));
+
+void init_gdt() {
+    // Hardcoded raw x86 descriptors for a flat 4GB model
+    raw_gdt[0] = 0x0000000000000000ULL; // Null Descriptor
+    raw_gdt[1] = 0x0000000000000000ULL; // Unused / Dummy Slot
+    raw_gdt[2] = 0x00CF9A000000FFFFULL; // Code Segment (Base 0, Limit 4GB, Selector 0x10)
+    raw_gdt[3] = 0x00CF92000000FFFFULL; // Data Segment (Base 0, Limit 4GB, Selector 0x18)
+
+    gdtp.limit = (sizeof(uint64_t) * 4) - 1; // Exactly 31 bytes
+    gdtp.base  = (uint32_t)&raw_gdt;
+
+    gdt_flush((uint32_t)&gdtp);
+}
+
+
 extern void picremap();
+extern void ring3perm();
 
 volatile char cmd[256];
 volatile int pos = 0;
@@ -125,7 +128,8 @@ void kernel_main(void)
 	terminal_initialize();
 	// Set IDT and GDT
 	__asm__ __volatile__("cli"); // Disable interruptions (maybe important?)
-	//init_gdt(); // initialize the GDT no rmore
+	init_gdt(); // initialize the GDT
+	ring3perm(); // patching
 	outb(0x20, 0xFF);
 	idtp.limit = sizeof(idt) - 1;
 	idtp.base = (uint32_t)&idt;

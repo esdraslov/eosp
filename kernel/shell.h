@@ -5,6 +5,8 @@
 #include "ports.h"
 #include "atapio.h"
 
+uint16_t buffer[512] __attribute__((aligned(16)));
+
 void reboot(void)
 {
     uint8_t temp = inb(0x64);
@@ -63,7 +65,6 @@ void process_command(char *cmd)
         haltsys();
     } else if (strcmp(cmd, "read") == 0)
     {
-        uint16_t buffer[512];
         ata_read_sector(0, buffer);
         dump_sector(buffer);
         /*
