@@ -4,6 +4,7 @@
 #include "stdlib.h"
 #include "ports.h"
 #include "atapio.h"
+#include "fdisking.h"
 
 uint16_t buffer[512] __attribute__((aligned(16)));
 
@@ -51,14 +52,16 @@ void dump_sector(uint16_t *buffer)
 
 void process_command(char *cmdl)
 {
-    char argv[5][32] = {0};
+    char argv[10][32] = {0};
     int i = 0;
     int j = 0;
     int sub = 0;
-    while (cmdl[i] != '\0' && j < 5) {
+    int argc = 0;
+    while (cmdl[i] != '\0' && j < 10) {
         if (cmdl[i] == ' ') {
             sub = ++i;
             j++;
+            argc++;
             continue;
         }
         argv[j][i-sub] = cmdl[i];
@@ -66,7 +69,7 @@ void process_command(char *cmdl)
     }
 
     char* cmd = argv[0];
-    printf("%s", argv[1]);
+    //printf("%s", argv[1]);
 
     if (strcmp(cmd, "help") == 0)
     {
@@ -74,7 +77,8 @@ void process_command(char *cmdl)
         printf("reboot - reboots the device\n");
         printf("halt - halts the system\n");
         printf("read <lba> - reads the first sector of lba <lba> and prints the result\n");
-        printf("write <lba> <text> - writes to the first sector of lba <lba> with <text>");
+        printf("write <lba> <text> - writes to the first sector of lba <lba> with <text>\n");
+        printf("fdisk - tool to manage partitions\n");
     } else if (strcmp(cmd, "reboot") == 0)
     {
         reboot();
@@ -90,7 +94,7 @@ void process_command(char *cmdl)
         my_buffer[255] = 0x0000; // Force a strict NULL terminator!
         dump_sector(my_buffer);
         */
-    } else if (strcmp(cmd, "write"))
+    } else if (strcmp(cmd, "write") == 0)
     {
         // 1. Get your LBA target
         uint32_t lba = atoi(argv[1]);
@@ -111,6 +115,34 @@ void process_command(char *cmdl)
 
         // 4. Pass the safely padded 512-byte block to the hardware
         ata_write_sector(lba, disk_buffer);
+    } else if (strcmp(cmd, "fdisk") == 0)
+    {
+        if (strcmp(argv[1], "init") == 0)
+        {
+            if (strcmp(argv[2], "mbr") == 0)
+            {
+                init_mbr();
+                printf("MBR initialized on master disk");
+            }
+            else
+            {
+                printf("Error: unknown architecture '%s'. Currently only supports 'mbr'", argv[2]);
+            }
+        }
+        else if (strcmp(argv[1], "create") == 0)
+        {
+            int architect = detect_architect();
+            if (architect == -1)
+            {
+                printf("UNINITIALIZED DISK");
+            } else if (architect == 0)
+            {
+                uint8_t slot = atoi(argv[2]);
+                uint32_t start_lba = atoi(argv[3]);
+                uint32_t seccount = atoi(argv[4]);
+                create_partition_mbr(slot, start_lba, seccount);
+            }
+        }
     }
 }   
 #endif
