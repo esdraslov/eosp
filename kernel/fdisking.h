@@ -35,6 +35,10 @@ struct FAT16DirEntry {
     uint32_t file_size;        // File size in bytes
 } __attribute__((packed));
 
+struct file {
+    char filename[256];
+};
+
 struct MBR {
     uint8_t boot_code[446];
     struct MBRPartition partitions[4];
@@ -162,7 +166,7 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
     }
 }
 
-void list_dir_fat16(partitionid_t part)
+void list_dir_fat16(partitionid_t part, struct file *buff)
 {
     uint16_t pbuffer[256];
     ata_read_sector(part.drive_id, 0, pbuffer);
@@ -188,6 +192,7 @@ void list_dir_fat16(partitionid_t part)
     printf("DEBUG: Sec Per FAT: %d\n", bpb->sectors_per_fat);
     printf("DEBUG: Target Root LBA: %d\n", root_dir_lba);
 
+    int l = 0;
     // OUTER LOOP: Step through each sector of the root directory region
     for (uint32_t i = 0; i < root_dir_sectors; i++) {
         
@@ -212,16 +217,24 @@ void list_dir_fat16(partitionid_t part)
                 continue; // ignore LFN records
 
             //ummm now just print right
-            char safe_fn[12];
-            int i = 0;
-            while (i < 12)
+            int k = 0;
+            while (k < 12)
             {
-                safe_fn[i] = (char)entry->filename[i];
-                i++;
+                if (entry->filename[k] == ' ')
+                {
+                    k++;
+                    continue;
+                }
+                if (k >= 8)
+                {
+                    buff[l].filename[k+1] = (char)entry->filename[k];
+                } else {
+                    buff[l].filename[k] = (char)entry->filename[k];
+                }
+                k++;
             }
-            safe_fn[i] = '\0';
-
-            printf("file %s\n", safe_fn);
+            buff[l].filename[k] = '\0';
+            buff[l].filename[8] = '.';
         }
         
         // Break out of the outer sector loop if the inner loop hit 0x00
