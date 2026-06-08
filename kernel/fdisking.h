@@ -174,7 +174,7 @@ void list_dir_fat16(partitionid_t part)
     ata_read_sector(part.drive_id, mbrpart->lba_start, buffer);
 
     struct fat16_bpb *bpb = (struct fat16_bpb *)buffer;
-    uint32_t root_dir_lba = part.partition + bpb->reserved_sectors + (bpb->num_fats * bpb->sectors_per_fat);
+    uint32_t root_dir_lba = mbrpart->lba_start + bpb->reserved_sectors + (bpb->num_fats * bpb->sectors_per_fat);
     
     // We calculate how many total sectors the root directory takes up
     // (Usually 512 entries * 32 bytes per entry = 16384 bytes -> 32 sectors)
@@ -196,7 +196,7 @@ void list_dir_fat16(partitionid_t part)
         
         for (int j = 0;j < 16;j++)
         {
-            printf("entry %d sector %d\n", j, i);
+            //printf("entry %d sector %d\n", j, i);
             struct FAT16DirEntry *entry = (struct FAT16DirEntry *)&dir_buffer[j*32];
 
             if (entry->filename[0]==0)
@@ -212,7 +212,16 @@ void list_dir_fat16(partitionid_t part)
                 continue; // ignore LFN records
 
             //ummm now just print right
-            printf("file [0] = %c", entry->filename[0]);
+            char safe_fn[12];
+            int i = 0;
+            while (i < 12)
+            {
+                safe_fn[i] = (char)entry->filename[i];
+                i++;
+            }
+            safe_fn[i] = '\0';
+
+            printf("file %s\n", safe_fn);
         }
         
         // Break out of the outer sector loop if the inner loop hit 0x00
