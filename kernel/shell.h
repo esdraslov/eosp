@@ -143,6 +143,21 @@ void process_command(char *cmdl)
                 create_partition_mbr(slot, start_lba, seccount);
             }
         }
+    } else if (strcmp(cmd, "mkfs") == 0)
+    {
+        int architect = detect_architect();
+        if (strcmp(argv[1], "fat16") == 0)
+        {
+            if (architect == 0)
+            {
+                uint8_t slot = atoi(argv[2]);
+                format_partition_mbr(slot, fat16);
+            } else if (architect == -1)
+            {
+                printf("UNINITIALIZED DISK");
+            }
+                
+        }
     }
 }   
 #endif

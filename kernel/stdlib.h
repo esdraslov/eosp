@@ -75,6 +75,20 @@ void *memset(void *s, int c, int n)
 	return s;
 }
 
+void *memcpy(void *dest, const void *src, uint32_t n) {
+    // Cast the void pointers to byte pointers so we can increment them
+    uint8_t *d = (uint8_t *)dest;
+    const uint8_t *s = (const uint8_t *)src;
+
+    // Copy byte by byte
+    for (uint32_t i = 0; i < n; i++) {
+        d[i] = s[i];
+    }
+
+    // Standard memcpy always returns the original destination pointer
+    return dest;
+}
+
 // VGA methods here
 #define VGA_WIDTH   80
 #define VGA_HEIGHT  25

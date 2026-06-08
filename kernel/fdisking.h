@@ -25,6 +25,10 @@ struct MBRPartition {
     uint32_t sector_count;   // Total number of sectors in this partition
 } __attribute__((packed));
 
+enum filesystem {
+    fat16 // currently only this
+};
+
 void init_mbr()
 {
     uint16_t buffer[256] = {0};
@@ -72,6 +76,65 @@ int detect_architect()
     if (buffer[255] == 0xAA55)
         return 0; // MBR
     return -1; // no architecture
+}
+
+
+void format_partition_mbr(uint8_t slot, enum filesystem fs)
+{
+    uint16_t buffer[256];
+    ata_read_sector(0, buffer); // WHERE IS THAT PARTITION??
+    uint32_t buffer_index = 223 + (slot * 8);
+    struct MBRPartition *part = (struct MBRPartition *)&buffer[buffer_index];
+
+    if (part->sector_count == 0 || part->partition_type == 0)
+    {
+        printf("PARTITION on slot %d EMPTY", slot);
+        return;
+    }
+
+    uint32_t start_lba = part->lba_start;
+    uint32_t total_sectors = part->sector_count;
+
+    printf("Formatting Partition %d (Start LBA: %d, Sectors: %d) to FAT16...\n", slot, start_lba, total_sectors); // this printf was ai because I'm lazy to write
+    
+    if (fs == fat16)
+    {
+        struct fat16_bpb bpb;
+        bpb.oem_name[0] = 'M';
+        bpb.oem_name[1] = 'S';
+        bpb.oem_name[2] = 'W';
+        bpb.oem_name[3] = 'I';
+        bpb.oem_name[4] = 'N';
+        bpb.oem_name[5] = '4';
+        bpb.oem_name[6] = '.';
+        bpb.oem_name[7] = '1';
+
+        bpb.bytes_per_sector = 512; // hardcoded
+        bpb.sectors_per_cluster = 4; // hardcoded too because I want conviniency
+        bpb.reserved_sectors = 1; // on FAT16, it's always one
+        bpb.num_fats = 2; // redudancy
+        bpb.root_dir_entries = 512; // compatibility, it's 512
+        
+        uint32_t net_sectors = total_sectors - 1 - 32;
+        uint32_t numerator = 2 * (net_sectors / 4);
+        uint32_t denominator = (512 / 2) + (2 / 4);
+        bpb.sectors_per_fat = (numerator + denominator - 1) / denominator;
+
+        bpb.total_sectors_short = total_sectors;
+
+        bpb.media_type = 0xF8; // because it's a hard drive
+
+        uint16_t sector_buffer[256] = {0}; // 512 bytes total, all zeroed out
+
+        // Copy your stack-allocated struct into the very front of the buffer
+        memcpy(sector_buffer, &bpb, sizeof(struct fat16_bpb));
+
+        // Assign the final magic boot signature (0xAA55) to the last 2 bytes
+        sector_buffer[255] = 0xAA55;
+
+        // Commit it to disk!
+        ata_write_sector(start_lba, sector_buffer);
+    }
 }
 
 #endif
