@@ -6,3 +6,4 @@ os.log
 .kdev4
 *.kdev4
 fdisk.txt
+*.img

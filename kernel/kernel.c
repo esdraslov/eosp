@@ -130,7 +130,7 @@ void kernel_main(void)
 	// Set IDT and GDT
 	__asm__ __volatile__("cli"); // Disable interruptions (maybe important?)
 	init_gdt(); // initialize the GDT
-	ring3perm(); // patching
+	//ring3perm(); // patching
 	outb(0x20, 0xFF);
 	idtp.limit = sizeof(idt) - 1;
 	idtp.base = (uint32_t)&idt;

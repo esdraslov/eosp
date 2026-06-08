@@ -77,7 +77,7 @@ void process_command(char *cmdl)
         printf("reboot - reboots the device\n");
         printf("halt - halts the system\n");
         printf("read <lba> - reads the first sector of lba <lba> and prints the result\n");
-        printf("write <lba> <text> - writes to the first sector of lba <lba> with <text>\n");
+        printf("write <lba> <text> - does nothing\n");
         printf("fdisk - tool to manage partitions\n");
     } else if (strcmp(cmd, "reboot") == 0)
     {
@@ -87,7 +87,7 @@ void process_command(char *cmdl)
         haltsys();
     } else if (strcmp(cmd, "read") == 0)
     {
-        ata_read_sector(atoi(argv[1]), buffer);
+        ata_read_sector(atoi(argv[1]), atoi(argv[2]), buffer);
         dump_sector(buffer);
         /*
         for(int i=0; i<255; i++) my_buffer[i] = 0x4141; // 'AA'
@@ -114,14 +114,15 @@ void process_command(char *cmdl)
         dest[i] = '\0'; // Ensure it's null-terminated if you want to read it back as text later
 
         // 4. Pass the safely padded 512-byte block to the hardware
-        ata_write_sector(lba, disk_buffer);
+        //ata_write_sector(lba, disk_buffer);
     } else if (strcmp(cmd, "fdisk") == 0)
     {
         if (strcmp(argv[1], "init") == 0)
         {
-            if (strcmp(argv[2], "mbr") == 0)
+            uint8_t drive_id = atoi(argv[2]);
+            if (strcmp(argv[3], "mbr") == 0)
             {
-                init_mbr();
+                init_mbr(drive_id);
                 printf("MBR initialized on master disk");
             }
             else
@@ -131,33 +132,40 @@ void process_command(char *cmdl)
         }
         else if (strcmp(argv[1], "create") == 0)
         {
-            int architect = detect_architect();
+            uint8_t drive_id = atoi(argv[2]);
+            int architect = detect_architect(drive_id);
             if (architect == -1)
             {
                 printf("UNINITIALIZED DISK");
             } else if (architect == 0)
             {
-                uint8_t slot = atoi(argv[2]);
-                uint32_t start_lba = atoi(argv[3]);
-                uint32_t seccount = atoi(argv[4]);
-                create_partition_mbr(slot, start_lba, seccount);
+                uint8_t slot = atoi(argv[3]);
+                uint32_t start_lba = atoi(argv[4]);
+                uint32_t seccount = atoi(argv[5]);
+                create_partition_mbr(drive_id, slot, start_lba, seccount);
             }
         }
     } else if (strcmp(cmd, "mkfs") == 0)
     {
-        int architect = detect_architect();
+        partitionid_t part = str_partid(argv[2]);
+        int architect = detect_architect(part.drive_id);
         if (strcmp(argv[1], "fat16") == 0)
         {
             if (architect == 0)
             {
-                uint8_t slot = atoi(argv[2]);
-                format_partition_mbr(slot, fat16);
+                //uint8_t slot = atoi(argv[3]);
+                format_partition_mbr(part.drive_id, part.partition, fat16);
             } else if (architect == -1)
             {
                 printf("UNINITIALIZED DISK");
             }
                 
         }
+    } else if (strcmp(cmd, "ls") == 0)
+    {
+        partitionid_t part = str_partid(argv[1]);
+        //if (strcmp(argv[2], "fat16"))
+        list_dir_fat16(part);
     }
 }   
 #endif

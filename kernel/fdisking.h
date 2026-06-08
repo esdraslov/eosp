@@ -25,18 +25,39 @@ struct MBRPartition {
     uint32_t sector_count;   // Total number of sectors in this partition
 } __attribute__((packed));
 
+struct FAT16DirEntry {
+    uint8_t filename[11]; // just make this uint8_t
+    uint8_t attributes;        // File attributes (0x10 = Directory, 0x20 = Archive)
+    uint8_t reserved[10];      // Reserved for WinNT/timestamps
+    uint16_t modify_time;
+    uint16_t modify_date;
+    uint16_t starting_cluster; // CRITICAL: This is what read_file will need!
+    uint32_t file_size;        // File size in bytes
+} __attribute__((packed));
+
+struct MBR {
+    uint8_t boot_code[446];
+    struct MBRPartition partitions[4];
+    uint16_t signature;
+} __attribute__((packed));
+
+typedef struct {
+    uint8_t drive_id;
+    uint8_t partition; // aka slot on MBR
+} partitionid_t;
+
 enum filesystem {
     fat16 // currently only this
 };
 
-void init_mbr()
+void init_mbr(uint8_t drive_id)
 {
     uint16_t buffer[256] = {0};
     buffer[255] = 0xAA55; // tell this is the MBR
-    ata_write_sector(0, buffer);
+    ata_write_sector(drive_id, 0, buffer);
 }
 
-void create_partition_mbr(uint8_t slot, uint32_t start_lba, uint32_t sector_count) {
+void create_partition_mbr(uint8_t drive_id, uint8_t slot, uint32_t start_lba, uint32_t sector_count) {
     // Basic guard rails
     if (slot > 3) {
         printf("Error: MBR only supports partition slots 0 to 3.\n");
@@ -46,7 +67,7 @@ void create_partition_mbr(uint8_t slot, uint32_t start_lba, uint32_t sector_coun
     uint16_t disk_buffer[256];
     
     // 1. Read the current state of the MBR (so we don't overwrite existing partitions!)
-    ata_read_sector(0, disk_buffer);
+    ata_read_sector(drive_id, 0, disk_buffer);
     
     // 2. Calculate the exact array offset for the requested slot
     uint32_t buffer_index = 223 + (slot * 8);
@@ -65,24 +86,24 @@ void create_partition_mbr(uint8_t slot, uint32_t start_lba, uint32_t sector_coun
     }
 
     // 4. Flush the updated MBR back to Sector 0
-    ata_write_sector(0, disk_buffer);
-    printf("Partition in slot %d created: Start LBA %d, Sectors: %d\n", slot, start_lba, sector_count);
+    ata_write_sector(drive_id, 0, disk_buffer);
+    printf("Partition d%ds%d created: Start LBA %d, Sectors: %d\n", drive_id, slot, start_lba, sector_count);
 }
 
-int detect_architect()
+int detect_architect(uint8_t drive_id)
 {
     uint16_t buffer[256];
-    ata_read_sector(0, buffer);
+    ata_read_sector(drive_id, 0, buffer);
     if (buffer[255] == 0xAA55)
         return 0; // MBR
     return -1; // no architecture
 }
 
 
-void format_partition_mbr(uint8_t slot, enum filesystem fs)
+void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
 {
     uint16_t buffer[256];
-    ata_read_sector(0, buffer); // WHERE IS THAT PARTITION??
+    ata_read_sector(drive_id, 0, buffer); // WHERE IS THAT PARTITION??
     uint32_t buffer_index = 223 + (slot * 8);
     struct MBRPartition *part = (struct MBRPartition *)&buffer[buffer_index];
 
@@ -95,7 +116,7 @@ void format_partition_mbr(uint8_t slot, enum filesystem fs)
     uint32_t start_lba = part->lba_start;
     uint32_t total_sectors = part->sector_count;
 
-    printf("Formatting Partition %d (Start LBA: %d, Sectors: %d) to FAT16...\n", slot, start_lba, total_sectors); // this printf was ai because I'm lazy to write
+    printf("Formatting Partition d%ds%d (Start LBA: %d, Sectors: %d) to FAT16...\n", drive_id, slot, start_lba, total_sectors); // this printf was ai because I'm lazy to write
     
     if (fs == fat16)
     {
@@ -123,6 +144,10 @@ void format_partition_mbr(uint8_t slot, enum filesystem fs)
         bpb.total_sectors_short = total_sectors;
 
         bpb.media_type = 0xF8; // because it's a hard drive
+			      
+        bpb.jmp[0] = 0xEB; // jmp 0x3C
+        bpb.jmp[1] = 0x3C;
+        bpb.jmp[2] = 0x90;
 
         uint16_t sector_buffer[256] = {0}; // 512 bytes total, all zeroed out
 
@@ -133,8 +158,102 @@ void format_partition_mbr(uint8_t slot, enum filesystem fs)
         sector_buffer[255] = 0xAA55;
 
         // Commit it to disk!
-        ata_write_sector(start_lba, sector_buffer);
+        ata_write_sector(drive_id, start_lba, sector_buffer);
     }
+}
+
+void list_dir_fat16(partitionid_t part)
+{
+    uint16_t pbuffer[256];
+    ata_read_sector(part.drive_id, 0, pbuffer);
+
+    uint32_t buffer_index = 223 + (part.partition * 8);
+    struct MBRPartition *mbrpart = (struct MBRPartition *)&pbuffer[buffer_index];
+
+    uint16_t buffer[256];
+    ata_read_sector(part.drive_id, mbrpart->lba_start, buffer);
+
+    struct fat16_bpb *bpb = (struct fat16_bpb *)buffer;
+    uint32_t root_dir_lba = part.partition + bpb->reserved_sectors + (bpb->num_fats * bpb->sectors_per_fat);
+    
+    // We calculate how many total sectors the root directory takes up
+    // (Usually 512 entries * 32 bytes per entry = 16384 bytes -> 32 sectors)
+    uint32_t root_dir_sectors = (bpb->root_dir_entries * 32) / 512;
+
+    uint8_t dir_buffer[512];
+    int end_of_directory = 0;
+    printf("DEBUG: Part Start: %d\n", mbrpart->lba_start);
+    printf("DEBUG: Reserved Sec: %d\n", bpb->reserved_sectors);
+    printf("DEBUG: Num FATs: %d\n", bpb->num_fats);
+    printf("DEBUG: Sec Per FAT: %d\n", bpb->sectors_per_fat);
+    printf("DEBUG: Target Root LBA: %d\n", root_dir_lba);
+
+    // OUTER LOOP: Step through each sector of the root directory region
+    for (uint32_t i = 0; i < root_dir_sectors; i++) {
+        
+        // Read the current root directory sector
+        ata_read_sector(part.drive_id, root_dir_lba + i, (uint16_t *)dir_buffer);
+        
+        for (int j = 0;j < 16;j++)
+        {
+            printf("entry %d sector %d\n", j, i);
+            struct FAT16DirEntry *entry = (struct FAT16DirEntry *)&dir_buffer[j*32];
+
+            if (entry->filename[0]==0)
+            {
+                end_of_directory = 1;
+                break;
+            }
+
+            if (entry->filename[0] == 0xE5)
+                continue;
+
+            if (entry->attributes == 0x0F)
+                continue; // ignore LFN records
+
+            //ummm now just print right
+            printf("file [0] = %c", entry->filename[0]);
+        }
+        
+        // Break out of the outer sector loop if the inner loop hit 0x00
+        if (end_of_directory) {
+            break;
+        }
+    }
+}
+
+partitionid_t str_partid(char *str)
+{
+    partitionid_t part;
+    part.drive_id = 0xFF;
+    part.partition = 0xFF;
+    if (str[0] == 'd') // ensure correct format
+    {
+        char buff[10];
+        int i = 0;
+        while ((str[i+1] >= '0' && str[i+1] <= '9') && i < 9) // get numbers
+        {
+            buff[i] = str[i+1];
+            i++;
+        }
+        buff[i] = '\0';
+        int drive_id = atoi(buff);
+        if (str[i+1] == 's')
+        {
+            char buff[10];
+            int j = 0;
+            while ((str[j+i+1] >= '0' && str[j+i+1] <= '9') && j < 9)
+            {
+                buff[j] = str[j+i+1];
+                j++;
+            }
+            buff[j] = '\0';
+            int partnum = atoi(buff); // aka slot
+            part.drive_id = drive_id;
+            part.partition = partnum;
+        }
+    }
+    return part;
 }
 
 #endif
