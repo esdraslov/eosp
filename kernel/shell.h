@@ -193,7 +193,7 @@ void process_command(char *cmdl)
             if (fbuffer[i].filename[0] == 0)
                 break;
 
-            if (strcmp(fbuffer[i].filename, argv[2]) == 0)
+            if (strcasecmp(fbuffer[i].filename, argv[2]) == 0)
             {
                 found = true;
                 break;

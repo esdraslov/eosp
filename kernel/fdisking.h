@@ -212,11 +212,11 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
 
     uint8_t dir_buffer[512];
     int end_of_directory = 0;
-    printf("DEBUG: Part Start: %d\n", mbrpart->lba_start);
-    printf("DEBUG: Reserved Sec: %d\n", bpb->reserved_sectors);
-    printf("DEBUG: Num FATs: %d\n", bpb->num_fats);
-    printf("DEBUG: Sec Per FAT: %d\n", bpb->sectors_per_fat);
-    printf("DEBUG: Target Root LBA: %d\n", root_dir_lba);
+    // printf("DEBUG: Part Start: %d\n", mbrpart->lba_start);
+    // printf("DEBUG: Reserved Sec: %d\n", bpb->reserved_sectors);
+    // printf("DEBUG: Num FATs: %d\n", bpb->num_fats);
+    // printf("DEBUG: Sec Per FAT: %d\n", bpb->sectors_per_fat);
+    // printf("DEBUG: Target Root LBA: %d\n", root_dir_lba);
 
     int l = 0;
     // OUTER LOOP: Step through each sector of the root directory region
@@ -276,7 +276,7 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
 }
 
 void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip)
-{
+{ // THIS WORKED FIRST TRY
     uint16_t buffer[256];
     ata_read_sector(f.partition.drive_id, f.starting_lba, buffer);
 
