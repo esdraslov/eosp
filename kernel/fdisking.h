@@ -80,6 +80,16 @@ enum filesystem {
 
 struct partition_info bpb_cache[4];
 
+uint32_t get_next_cluster_fat(uint16_t current_cluster, uint32_t fat_slba, partitionid_t part)
+{
+    uint32_t fat_offset = current_cluster * 2;
+    uint32_t fat_lba = fat_slba + (fat_offset / 512);
+    uint32_t entry_index = (fat_offset % 512) / 2;
+    uint16_t buffer[256];
+    ata_read_sector(part.drive_id, fat_lba, buffer);
+    return buffer[entry_index];
+}
+
 void init_mbr(uint8_t drive_id)
 {
     uint16_t buffer[256] = {0};
@@ -217,6 +227,7 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
     // printf("DEBUG: Num FATs: %d\n", bpb->num_fats);
     // printf("DEBUG: Sec Per FAT: %d\n", bpb->sectors_per_fat);
     // printf("DEBUG: Target Root LBA: %d\n", root_dir_lba);
+    // printf("sectors per cluster %d\n", bpb->sectors_per_cluster);
 
     int l = 0;
     // OUTER LOOP: Step through each sector of the root directory region
@@ -276,7 +287,7 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
 }
 
 void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip)
-{ // THIS WORKED FIRST TRY
+{ // THIS WORKED FIRST TRY (single-cluster read)
     uint16_t buffer[256];
     ata_read_sector(f.partition.drive_id, f.starting_lba, buffer);
 
@@ -311,10 +322,11 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
     uint32_t counted = 0;
     bool end_read = false;
     uint16_t *output = (uint16_t *)ebuffer;
+    uint32_t ncluster = fcluster;
     for (int i = 0; i < (count / 256); i++)
     {
         uint16_t tmpbuffer[256];
-        ata_read_sector(f.partition.drive_id, actual_tlba + i, tmpbuffer);
+        ata_read_sector(f.partition.drive_id, actual_tlba++, tmpbuffer);
 
         for (int j = 0; j < 256; j++)
         {
@@ -329,6 +341,16 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
             break;
 
         output += 256;
+        if ((i+1) % bpb->sectors_per_cluster == 0)
+        {
+            ncluster = get_next_cluster_fat(ncluster, fat_lba, f.partition);
+            actual_tlba = drs_lba +((ncluster - 2) * bpb->sectors_per_cluster);
+
+            printf("cluster %d\n", ncluster);
+
+            if (ncluster >= 0xFFF8)
+                break;
+        }
     }
 }
 
