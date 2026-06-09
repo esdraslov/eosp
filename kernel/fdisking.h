@@ -53,6 +53,8 @@ struct file {
     uint32_t starting_lba; // READ METADATA
     uint8_t offset;
     partitionid_t partition;
+    bool exists;
+    struct file *parent;
 } __attribute__((packed)); // economize space, a single unit of this is 69 bytes I think?
 
 struct MBR {
@@ -323,10 +325,13 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
     bool end_read = false;
     uint16_t *output = (uint16_t *)ebuffer;
     uint32_t ncluster = fcluster;
+    uint32_t toread = 0;
     for (int i = 0; i < (count / 256); i++)
     {
+        actual_tlba = drs_lba +((ncluster - 2) * bpb->sectors_per_cluster);
         uint16_t tmpbuffer[256];
-        ata_read_sector(f.partition.drive_id, actual_tlba++, tmpbuffer);
+        ata_read_sector(f.partition.drive_id, actual_tlba + toread, tmpbuffer);
+        toread++;
 
         for (int j = 0; j < 256; j++)
         {
@@ -344,8 +349,7 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
         if ((i+1) % bpb->sectors_per_cluster == 0)
         {
             ncluster = get_next_cluster_fat(ncluster, fat_lba, f.partition);
-            actual_tlba = drs_lba +((ncluster - 2) * bpb->sectors_per_cluster);
-
+            toread = 0;
             printf("cluster %d\n", ncluster);
 
             if (ncluster >= 0xFFF8)
@@ -386,6 +390,63 @@ partitionid_t str_partid(char *str)
         }
     }
     return part;
+}
+
+static struct file fbuffer[128];
+
+struct file resolve_path(const char *path)
+{
+    const char *current_pos = path;
+    char token[256];
+
+    partitionid_t part;
+    bool isrelative = false;
+    part.drive_id = 0xFE;
+    part.partition = 0xFE;
+
+    bool isreal = true;
+
+    struct file f;
+    f.exists = true;
+    f.starting_lba = 0;
+    f.offset = 0;
+    f.partition = part;
+    f.isdir = false;
+    f.parent = NULL;
+
+    while (next_path_token(&current_pos, token))
+    {
+        if (part.drive_id == 0xFE)
+        {
+            part = str_partid(token);
+            if (part.drive_id == 0xFF)
+                isrelative = true;
+
+            f.partition = part;
+        }
+        else
+        {
+            if (isreal)
+            {
+                memset(fbuffer, 0, 128*sizeof(struct file));
+                list_dir_fat16(part, fbuffer);
+
+                bool found = false;
+                for (int i = 0; i< 128; i++)
+                {
+                    if (strcmp(fbuffer[i].filename, token))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    isreal = false;
+                }
+            }
+        }
+    }
 }
 
 #endif

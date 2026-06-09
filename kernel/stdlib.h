@@ -79,6 +79,38 @@ int strcasecmp(const char *s1, const char *s2) {
     return *s1 - *s2;
 }
 
+int next_path_token(const char **path_ptr, char *token_buffer) {
+    const char *src = *path_ptr;
+    int length = 0;
+
+    // 1. Skip over any leading slashes (e.g., "///docs/notes.txt" -> "docs/notes.txt")
+    while (*src == '/') {
+        src++;
+    }
+
+    // 2. If we hit the end of the string, there are no more tokens left
+    if (*src == '\0') {
+        return 0;
+    }
+
+    // 3. Copy characters into our token buffer until we hit another slash or the end
+    while (*src != '\0' && *src != '/') {
+        // Prevent buffer overflows (assume token_buffer is at least 12 bytes for 8.3 FAT names)
+        if (length < 255) { 
+            token_buffer[length++] = *src;
+        }
+        src++;
+    }
+
+    // 4. Null-terminate our newly extracted token
+    token_buffer[length] = '\0';
+
+    // 5. Update the original path pointer so the next call picks up right where we left off!
+    *path_ptr = src;
+
+    return 1;
+}
+
 void *memset(void *s, int c, int n)
 {
 	unsigned char *p = s;
