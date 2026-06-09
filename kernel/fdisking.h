@@ -2,6 +2,18 @@
 #define FDISK_H
 
 #include "atapio.h"
+#define ATTR_READ_ONLY 0x01
+#define ATTR_HIDDEN 0x02
+#define ATTR_SYSTEM 0x04
+#define ATTR_VOLUME_ID 0x08
+#define ATTR_DIRECTORY 0x10
+#define ATTR_ARCHIVE 0X20
+#define LFN 0x07
+
+typedef struct {
+    uint8_t drive_id;
+    uint8_t partition; // aka slot on MBR
+} partitionid_t;
 
 struct fat16_bpb {
     uint8_t jmp[3];
@@ -36,8 +48,12 @@ struct FAT16DirEntry {
 } __attribute__((packed));
 
 struct file {
-    char filename[256];
-};
+    char filename[64];
+    bool isdir;
+    uint32_t starting_lba; // READ METADATA
+    uint8_t offset;
+    partitionid_t partition;
+} __attribute__((packed)); // economize space, a single unit of this is 69 bytes I think?
 
 struct MBR {
     uint8_t boot_code[446];
@@ -45,14 +61,24 @@ struct MBR {
     uint16_t signature;
 } __attribute__((packed));
 
-typedef struct {
+struct partition_info {
     uint8_t drive_id;
-    uint8_t partition; // aka slot on MBR
-} partitionid_t;
+    uint32_t partition_index;
+    uint32_t lba_start;         // Cached from MBR
+    
+    // Cached filesystem metadata so you never have to re-read the BPB sector!
+    uint32_t data_region_start; // Your 'drs_lba'
+    uint8_t sectors_per_cluster;
+    uint16_t reserved_sectors;
+    uint32_t sectors_per_fat;
+    uint8_t num_fats;
+};
 
 enum filesystem {
     fat16 // currently only this
 };
+
+struct partition_info bpb_cache[4];
 
 void init_mbr(uint8_t drive_id)
 {
@@ -213,7 +239,7 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
             if (entry->filename[0] == 0xE5)
                 continue;
 
-            if (entry->attributes == 0x0F)
+            if (entry->attributes == LFN)
                 continue; // ignore LFN records
 
             //ummm now just print right
@@ -235,12 +261,74 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
             }
             buff[l].filename[k] = '\0';
             buff[l].filename[8] = '.';
+
+            buff[l].isdir = entry->attributes & ATTR_DIRECTORY;
+            buff[l].starting_lba = root_dir_lba + i;
+            buff[l].offset = j*32; // i hope evrything is correct?
+            buff[l].partition = part;
         }
         
         // Break out of the outer sector loop if the inner loop hit 0x00
         if (end_of_directory) {
             break;
         }
+    }
+}
+
+void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip)
+{
+    uint16_t buffer[256];
+    ata_read_sector(f.partition.drive_id, f.starting_lba, buffer);
+
+    struct FAT16DirEntry *entry = (struct FAT16DirEntry *)&buffer[f.offset];
+
+    uint16_t fcluster = entry->starting_cluster;
+    uint32_t fsize = entry->file_size;
+
+    // get the BPB (I never cache this, but I should)
+    uint16_t pbuffer[256];
+    ata_read_sector(f.partition.drive_id, 0, pbuffer);
+
+    uint32_t buffer_index = 223 + (f.partition.partition * 8);
+    struct MBRPartition *mbrpart = (struct MBRPartition *)&pbuffer[buffer_index];
+
+    uint16_t mbrbuffer[256];
+    ata_read_sector(f.partition.drive_id, mbrpart->lba_start, mbrbuffer);
+
+    struct fat16_bpb *bpb = (struct fat16_bpb *)mbrbuffer;
+    // get the DRS
+    uint32_t fat_lba = mbrpart->lba_start + bpb->reserved_sectors;
+
+    uint32_t root_dir_lba = fat_lba + (bpb->num_fats * bpb->sectors_per_fat);
+
+    uint32_t root_dir_sectors = (bpb->root_dir_entries * 32) / bpb->bytes_per_sector;
+
+    uint32_t drs_lba = root_dir_lba + root_dir_sectors;
+
+    uint32_t tlba = drs_lba + ((fcluster - 2) * bpb->sectors_per_cluster);
+    uint32_t actual_tlba = tlba + (skip / 256);
+
+    uint32_t counted = 0;
+    bool end_read = false;
+    uint16_t *output = (uint16_t *)ebuffer;
+    for (int i = 0; i < (count / 256); i++)
+    {
+        uint16_t tmpbuffer[256];
+        ata_read_sector(f.partition.drive_id, actual_tlba + i, tmpbuffer);
+
+        for (int j = 0; j < 256; j++)
+        {
+            if (counted++ >= count)
+            {
+                end_read = true;
+                break;
+            }
+            output[j] = tmpbuffer[j];
+        }
+        if (end_read)
+            break;
+
+        output += 256;
     }
 }
 

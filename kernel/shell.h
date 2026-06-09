@@ -6,7 +6,7 @@
 #include "atapio.h"
 #include "fdisking.h"
 
-uint16_t buffer[512] __attribute__((aligned(16)));
+static struct file fbuffer[128];
 
 void reboot(void)
 {
@@ -87,6 +87,7 @@ void process_command(char *cmdl)
         haltsys();
     } else if (strcmp(cmd, "read") == 0)
     {
+        uint16_t buffer[512];
         ata_read_sector(atoi(argv[1]), atoi(argv[2]), buffer);
         dump_sector(buffer);
         /*
@@ -163,9 +164,50 @@ void process_command(char *cmdl)
         }
     } else if (strcmp(cmd, "ls") == 0)
     {
+        memset(fbuffer, 0, 4160);
+
         partitionid_t part = str_partid(argv[1]);
-        //if (strcmp(argv[2], "fat16"))
-        list_dir_fat16(part);
+        // if (strcmp(argv[2], "fat16"))
+        // {
+        list_dir_fat16(part, fbuffer);
+        // }
+
+        for (int i = 0; i < 128; i++)
+        {
+            if (fbuffer[i].filename[0] == 0x00)
+            {
+                break;
+            }
+            printf("%s [%c]\n", fbuffer[i].filename, fbuffer[i].isdir ? 'D' : 'F');
+        }
+    } else if (strcmp(cmd, "cat") == 0)
+    {
+        memset(fbuffer, 0, 4160);
+        partitionid_t part = str_partid(argv[1]);
+        list_dir_fat16(part, fbuffer);
+
+        bool found = false;
+        int i;
+        for (i = 0; i < 128; i++)
+        {
+            if (fbuffer[i].filename[0] == 0)
+                break;
+
+            if (strcmp(fbuffer[i].filename, argv[2]) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            printf("FILE %s NOT FOUND", argv[2]);
+        } else
+        {
+            char buffer[512];
+            read_file_fat16(fbuffer[i], (void *)buffer, 256, 0);
+            printf("%s", buffer);
+        }
     }
 }   
 #endif
