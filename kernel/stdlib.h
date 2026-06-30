@@ -79,6 +79,16 @@ int strcasecmp(const char *s1, const char *s2) {
     return *s1 - *s2;
 }
 
+void strcpy(char *dest, const char *src)
+{
+    while (*src)
+    {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+}
+
 int next_path_token(const char **path_ptr, char *token_buffer) {
     const char *src = *path_ptr;
     int length = 0;

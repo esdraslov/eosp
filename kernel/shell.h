@@ -204,10 +204,13 @@ void process_command(char *cmdl)
             printf("FILE %s NOT FOUND", argv[2]);
         } else
         {
-            char buffer[512];
+            char buffer[513] = {'\0'};
+            int skip = 0;
+
             read_file_fat16(fbuffer[i], (void *)buffer, 256, 0);
-            printf("%s", buffer);
+            printf("%s\n", buffer);
         }
     }
 }   
 #endif
+

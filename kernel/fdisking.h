@@ -53,9 +53,8 @@ struct file {
     uint32_t starting_lba; // READ METADATA
     uint8_t offset;
     partitionid_t partition;
-    bool exists;
     struct file *parent;
-} __attribute__((packed)); // economize space, a single unit of this is 69 bytes I think?
+}; // removed packed attribute so some systems don't complain about it
 
 struct MBR {
     uint8_t boot_code[446];
@@ -243,6 +242,8 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
             //printf("entry %d sector %d\n", j, i);
             struct FAT16DirEntry *entry = (struct FAT16DirEntry *)&dir_buffer[j*32];
 
+            // printf("filename: %s", entry->filename);
+
             if (entry->filename[0]==0)
             {
                 end_of_directory = 1;
@@ -279,6 +280,7 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
             buff[l].starting_lba = root_dir_lba + i;
             buff[l].offset = j*32; // i hope evrything is correct?
             buff[l].partition = part;
+            l++;
         }
         
         // Break out of the outer sector loop if the inner loop hit 0x00
@@ -318,14 +320,27 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
 
     uint32_t drs_lba = root_dir_lba + root_dir_sectors;
 
+    uint32_t cskip = (skip / 256) / bpb->sectors_per_cluster;
+    uint32_t askip = (skip / 256) - (cskip * bpb->sectors_per_cluster);
+    uint32_t rskip = skip - (askip * 256) - ((cskip * bpb->sectors_per_cluster)*256);
+    for (uint32_t i = 0; i < cskip; i++)
+    {
+        fcluster = get_next_cluster_fat(fcluster, fat_lba, f.partition);
+        if (fcluster >= 0xFFF8)
+            return;
+    }
+
+    printf("cskip: %d\naskip: %d\nrskip: %d\n", cskip, askip, rskip);
+
     uint32_t tlba = drs_lba + ((fcluster - 2) * bpb->sectors_per_cluster);
-    uint32_t actual_tlba = tlba + (skip / 256);
+
+    uint32_t actual_tlba = tlba + askip;
 
     uint32_t counted = 0;
     bool end_read = false;
     uint16_t *output = (uint16_t *)ebuffer;
     uint32_t ncluster = fcluster;
-    uint32_t toread = 0;
+    uint32_t toread = askip;
     for (int i = 0; i < (count / 256); i++)
     {
         actual_tlba = drs_lba +((ncluster - 2) * bpb->sectors_per_cluster);
@@ -335,6 +350,8 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
 
         for (int j = 0; j < 256; j++)
         {
+            // if (rskip-- > 0)
+            //     continue;
             if (counted++ >= count)
             {
                 end_read = true;
@@ -350,7 +367,7 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
         {
             ncluster = get_next_cluster_fat(ncluster, fat_lba, f.partition);
             toread = 0;
-            printf("cluster %d\n", ncluster);
+            // printf("cluster %d\n", ncluster);
 
             if (ncluster >= 0xFFF8)
                 break;
@@ -394,7 +411,7 @@ partitionid_t str_partid(char *str)
 
 static struct file fbuffer[128];
 
-struct file resolve_path(const char *path)
+struct file resolve_path(const char *path, struct file *parents)
 {
     const char *current_pos = path;
     char token[256];
@@ -404,15 +421,14 @@ struct file resolve_path(const char *path)
     part.drive_id = 0xFE;
     part.partition = 0xFE;
 
-    bool isreal = true;
-
     struct file f;
-    f.exists = true;
     f.starting_lba = 0;
     f.offset = 0;
     f.partition = part;
     f.isdir = false;
     f.parent = NULL;
+
+    int depth = 0;
 
     while (next_path_token(&current_pos, token))
     {
@@ -426,27 +442,22 @@ struct file resolve_path(const char *path)
         }
         else
         {
-            if (isreal)
+            if (depth > 0)
             {
-                memset(fbuffer, 0, 128*sizeof(struct file));
-                list_dir_fat16(part, fbuffer);
-
-                bool found = false;
-                for (int i = 0; i< 128; i++)
-                {
-                    if (strcmp(fbuffer[i].filename, token))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    isreal = false;
-                }
+                f.isdir = true;
+                parents[depth-1] = f;
+                f.parent = &parents[depth-1];
+                strcpy(f.filename, token);
+                f.isdir = false;
             }
+            else {
+                strcpy(f.filename, token);
+                f.isdir = false;
+            }
+            depth++;
         }
     }
+    return f;
 }
 
 #endif
