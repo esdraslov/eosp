@@ -361,6 +361,7 @@ bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
         uint16_t tmpbuffer[256];
         ata_read_sector(f.partition.drive_id, actual_tlba + toread, tmpbuffer);
         toread++;
+        printf("%d %d\n", actual_tlba, actual_tlba + toread);
 
         for (int j = 0; j < 256; j++)
         {

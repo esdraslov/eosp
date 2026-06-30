@@ -207,7 +207,7 @@ void process_command(char *cmdl)
             char buffer[513] = {'\0'};
             int skip = 0;
 
-            bool r = read_file_fat16(fbuffer[i], (void *)buffer, 256, 512);
+            bool r = read_file_fat16(fbuffer[i], (void *)buffer, 256, 0);
             printf("[%s] %s\n", r ? "T" : "F", buffer);
         }
     }
