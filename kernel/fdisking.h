@@ -2,6 +2,7 @@
 #define FDISK_H
 
 #include "atapio.h"
+#include "math.h"
 #define ATTR_READ_ONLY 0x01
 #define ATTR_HIDDEN 0x02
 #define ATTR_SYSTEM 0x04
@@ -27,6 +28,40 @@ struct fat16_bpb {
     uint8_t  media_type;        // 0xF8 for hard disks
     uint16_t sectors_per_fat;
 } __attribute__((packed));
+
+struct ext2_sb {
+    uint32_t inodes_count;
+    uint32_t blocks_count;
+    uint32_t r_blocks_count;
+    uint32_t free_blocks;
+    uint32_t free_inodes;
+    uint32_t first_data_block;
+    uint32_t log_block_size;
+    uint32_t log_frag_size;
+    uint32_t blocks_per_group;
+    uint32_t frags_per_group;
+    uint32_t inodes_per_group;
+
+    uint32_t mtime;
+    uint32_t wtime;
+
+    uint16_t mnt_count;
+    uint16_t max_mnt_count;
+    uint16_t magic;
+    uint16_t state;
+    uint16_t errors;
+    uint16_t minor_rev_lvl;
+
+    uint32_t lastcheck;
+    uint32_t checkinterval;
+    uint32_t creator_os;
+    uint32_t rev_level;
+    
+    uint16_t def_resuid;
+    uint16_t def_resgid;
+
+    uint8_t PADDING[884];
+};
 
 struct MBRPartition {
     uint8_t  drive_status;   // 0x80 = Active/Bootable, 0x00 = Inactive
@@ -66,20 +101,20 @@ struct partition_info {
     uint8_t drive_id;
     uint32_t partition_index;
     uint32_t lba_start;         // Cached from MBR
-    
-    // Cached filesystem metadata so you never have to re-read the BPB sector!
-    uint32_t data_region_start; // Your 'drs_lba'
-    uint8_t sectors_per_cluster;
-    uint16_t reserved_sectors;
-    uint32_t sectors_per_fat;
-    uint8_t num_fats;
+};
+
+enum ext2_creatoros {
+    os_linux,
+    os_hurd,
+    os_masix,
+    os_freebsd,
+    os_lites
 };
 
 enum filesystem {
-    fat16 // currently only this
+    fat16,
+    ext2
 };
-
-struct partition_info bpb_cache[4];
 
 uint32_t get_next_cluster_fat(uint16_t current_cluster, uint32_t fat_slba, partitionid_t part)
 {
@@ -159,7 +194,7 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
     uint32_t start_lba = part->lba_start;
     uint32_t total_sectors = part->sector_count;
 
-    printf("Formatting Partition d%ds%d (Start LBA: %d, Sectors: %d) to FAT16...\n", drive_id, slot, start_lba, total_sectors); // this printf was ai because I'm lazy to write
+    printf("Formatting Partition d%ds%d (Start LBA: %d, Sectors: %d)...\n", drive_id, slot, start_lba, total_sectors); // this printf was ai because I'm lazy to write
     
     if (fs == fat16)
     {
@@ -202,6 +237,23 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
 
         // Commit it to disk!
         ata_write_sector(drive_id, start_lba, sector_buffer);
+    }
+     else if (fs == ext2)
+    {
+        struct ext2_sb block;
+        block.creator_os = os_linux;
+        block.magic = 0xEF53;
+        block.inodes_count = (part->sector_count * 512) / 8192;
+        block.inodes_count = (block.inodes_count + 7) & ~7;
+        block.blocks_count = part->sector_count / 2;
+        block.blocks_per_group = 8192;
+        block.frags_per_group = 8192;
+        block.inodes_per_group = min(8192, block.inodes_count);
+        // block.free_blocks = block.blocks_count; // not sure how many metadata blocks yet
+        block.free_inodes = block.inodes_count;
+        block.r_blocks_count = 0;
+        block.mnt_count = 0;
+        block.mtime = 0;
     }
 }
 
