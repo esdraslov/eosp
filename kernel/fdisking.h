@@ -86,6 +86,8 @@ uint32_t get_next_cluster_fat(uint16_t current_cluster, uint32_t fat_slba, parti
     uint32_t fat_offset = current_cluster * 2;
     uint32_t fat_lba = fat_slba + (fat_offset / 512);
     uint32_t entry_index = (fat_offset % 512) / 2;
+    printf("DEBUG get_next: cluster=%d, offset=%d, fat_lba=%d, entry_index=%d\n", 
+           current_cluster, fat_offset, fat_lba, entry_index);
     uint16_t buffer[256];
     ata_read_sector(part.drive_id, fat_lba, buffer);
     return buffer[entry_index];
@@ -307,6 +309,8 @@ bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
     uint32_t buffer_index = 223 + (f.partition.partition * 8);
     struct MBRPartition *mbrpart = (struct MBRPartition *)&pbuffer[buffer_index];
 
+    printf("%d\n", buffer_index);
+
     uint16_t mbrbuffer[256];
     ata_read_sector(f.partition.drive_id, mbrpart->lba_start, mbrbuffer);
 
@@ -329,16 +333,17 @@ bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
         if (fcluster >= 0xFFF8)
             return true;
     }
-    uint16_t test_cluster = fcluster;
-    printf("Cluster Chain: %d", test_cluster, fat_lba);
-    for (int c = 0; c < 4; c++) {
-        test_cluster = get_next_cluster_fat(test_cluster, fat_lba, f.partition);
-        printf(" -> %d", test_cluster);
-    }
-    printf("\n");
+
+    // uint16_t test_cluster = fcluster;
+    // printf("Cluster Chain: %d", test_cluster, fat_lba);
+    // for (int c = 0; c < 4; c++) {
+    //     test_cluster = get_next_cluster_fat(test_cluster, fat_lba, f.partition);
+    //     printf(" -> %d", test_cluster);
+    // }
+    // printf("\n");
 
 
-    printf("cskip: %d\naskip: %d\nrskip: %d\n", cskip, askip, rskip);
+    printf("cskip: %d\naskip: %d\nrskip: %d\nlba: %d\n", cskip, askip, rskip, fat_lba);
 
     uint32_t tlba = drs_lba + ((fcluster - 2) * bpb->sectors_per_cluster);
 
@@ -349,6 +354,7 @@ bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
     uint16_t *output = (uint16_t *)ebuffer;
     uint32_t ncluster = fcluster;
     uint32_t toread = askip;
+    uint32_t idxa = 0;
     for (int i = 0; i < (count / 256); i++)
     {
         actual_tlba = drs_lba +((ncluster - 2) * bpb->sectors_per_cluster);
@@ -365,7 +371,8 @@ bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
                 end_read = true;
                 break;
             }
-            output[j] = tmpbuffer[j];
+            output[idxa] = tmpbuffer[j];
+            idxa++;
         }
         if (end_read)
             break;
@@ -373,7 +380,7 @@ bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
         output += 256;
         if (toread >= bpb->sectors_per_cluster)
         {
-            ncluster = get_next_cluster_fat(ncluster, fat_lba, f.partition);
+            ncluster = get_next_cluster_fat(ncluster , fat_lba, f.partition);
             toread = 0;
             printf("cluster %d\n", ncluster);
 
