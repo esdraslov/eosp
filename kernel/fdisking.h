@@ -290,7 +290,7 @@ void list_dir_fat16(partitionid_t part, struct file *buff)
     }
 }
 
-void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip)
+bool read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip)
 { // THIS WORKED FIRST TRY (single-cluster read)
     uint16_t buffer[256];
     ata_read_sector(f.partition.drive_id, f.starting_lba, buffer);
@@ -327,8 +327,16 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
     {
         fcluster = get_next_cluster_fat(fcluster, fat_lba, f.partition);
         if (fcluster >= 0xFFF8)
-            return;
+            return true;
     }
+    uint16_t test_cluster = fcluster;
+    printf("Cluster Chain: %d", test_cluster, fat_lba);
+    for (int c = 0; c < 4; c++) {
+        test_cluster = get_next_cluster_fat(test_cluster, fat_lba, f.partition);
+        printf(" -> %d", test_cluster);
+    }
+    printf("\n");
+
 
     printf("cskip: %d\naskip: %d\nrskip: %d\n", cskip, askip, rskip);
 
@@ -363,16 +371,17 @@ void read_file_fat16(struct file f, void *ebuffer, uint32_t count, uint32_t skip
             break;
 
         output += 256;
-        if ((i+1) % bpb->sectors_per_cluster == 0)
+        if (toread >= bpb->sectors_per_cluster)
         {
             ncluster = get_next_cluster_fat(ncluster, fat_lba, f.partition);
             toread = 0;
-            // printf("cluster %d\n", ncluster);
+            printf("cluster %d\n", ncluster);
 
             if (ncluster >= 0xFFF8)
-                break;
+                return true;
         }
     }
+    return false;
 }
 
 partitionid_t str_partid(char *str)
