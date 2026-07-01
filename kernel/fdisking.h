@@ -64,9 +64,16 @@ struct ext2_sb {
     uint8_t PADDING[884];
 } __attribute__((packed));
 
-// struct ext2_bgd {
-
-// };
+struct ext2_bgd {
+    uint32_t block_bitmap;
+    uint32_t inode_bitmap;
+    uint32_t inode_table;
+    uint16_t free_blocks_count;
+    uint16_t free_inodes_count;
+    uint16_t used_dirs_count;
+    uint16_t pad;
+    uint32_t reserved[3];
+};
 
 struct MBRPartition {
     uint8_t  drive_status;   // 0x80 = Active/Bootable, 0x00 = Inactive
@@ -266,6 +273,9 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
         uint16_t fhalf[256];
         memcpy(&fhalf, &block, 512);
         ata_write_sector(drive_id, start_lba+2, fhalf);
+
+        struct ext2_bgd bgd;
+        memset(&bgd, 0, sizeof(struct ext2_bgd));
     }
 }
 
