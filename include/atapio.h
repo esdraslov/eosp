@@ -19,4 +19,10 @@ void ata_read_sector(uint8_t drive_id, uint32_t lba, uint16_t *buffer);
 
 void ata_write_sector(uint8_t drive_id, uint32_t lba, uint16_t *buffer);
 
+void ata_read_sectors(uint8_t drive_id, uint32_t lba, uint8_t sectors_count, uint16_t *buffer);
+
+void ata_write_sectors(uint8_t drive_id, uint32_t lba,  uint8_t sectors_count, uint16_t *buffer);
+
+// uint32_t ata_get_total_sectors();
+
 #endif
