@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include "ports.h"
 
 // misc methods
 size_t strlen(const char* str) 
@@ -298,4 +299,5 @@ void printf(const char* format, ...)
     va_end(args);
     terminal_writestring(buffer);
 }
+
 #endif

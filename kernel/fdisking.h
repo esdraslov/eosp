@@ -3,6 +3,7 @@
 
 #include "atapio.h"
 #include "math.h"
+#include "stdlib.h"
 #define ATTR_READ_ONLY 0x01
 #define ATTR_HIDDEN 0x02
 #define ATTR_SYSTEM 0x04
@@ -61,7 +62,11 @@ struct ext2_sb {
     uint16_t def_resgid;
 
     uint8_t PADDING[884];
-};
+} __attribute__((packed));
+
+// struct ext2_bgd {
+
+// };
 
 struct MBRPartition {
     uint8_t  drive_status;   // 0x80 = Active/Bootable, 0x00 = Inactive
@@ -241,6 +246,8 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
      else if (fs == ext2)
     {
         struct ext2_sb block;
+        memset(&block, 0, sizeof(struct ext2_sb));
+
         block.creator_os = os_linux;
         block.magic = 0xEF53;
         block.inodes_count = (part->sector_count * 512) / 8192;
@@ -250,10 +257,15 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
         block.frags_per_group = 8192;
         block.inodes_per_group = min(8192, block.inodes_count);
         // block.free_blocks = block.blocks_count; // not sure how many metadata blocks yet
-        block.free_inodes = block.inodes_count;
-        block.r_blocks_count = 0;
-        block.mnt_count = 0;
-        block.mtime = 0;
+        block.free_inodes = block.inodes_count - 1;
+        // struct rtc_time t;
+        // get_rtc_time(&t);
+        block.wtime = 1772391600;
+        block.first_data_block = 1;
+
+        uint16_t fhalf[256];
+        memcpy(&fhalf, &block, 512);
+        ata_write_sector(drive_id, start_lba+2, fhalf);
     }
 }
 
