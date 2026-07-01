@@ -5,10 +5,11 @@
 #include "ports.h"
 #include "atapio.h"
 #include "fdisking.h"
+#include "fs/vfs.h"
 
 static struct file fbuffer[128];
 
-void reboot(void)
+static inline void reboot(void)
 {
     uint8_t temp = inb(0x64);
     while (temp & 0x01)
@@ -27,7 +28,7 @@ void reboot(void)
 }
 
 // basically halt 'n' fire
-void haltsys(void)
+static inline void haltsys(void)
 {
     printf("System halted, it's now safe to shutdown...");
     __asm__ __volatile__("cli");
@@ -37,7 +38,7 @@ void haltsys(void)
     }
 }
 
-void dump_sector(uint16_t *buffer)
+static inline void dump_sector(uint16_t *buffer)
 {
     for (int i = 0; i < 256; i++)
     {
@@ -50,7 +51,7 @@ void dump_sector(uint16_t *buffer)
     }
 }
 
-void process_command(char *cmdl)
+static inline void process_command(char *cmdl)
 {
     char argv[10][32] = {0};
     int i = 0;
@@ -159,8 +160,17 @@ void process_command(char *cmdl)
             } else if (architect == -1)
             {
                 printf("UNINITIALIZED DISK");
-            }
-                
+            } 
+        } else if (strcmp(argv[1], "ext2") == 0)
+        {
+            if (architect == 0)
+            {
+                //uint8_t slot = atoi(argv[3]);
+                format_partition_mbr(part.drive_id, part.partition, ext2);
+            } else if (architect == -1)
+            {
+                printf("UNINITIALIZED DISK");
+            } 
         }
     } else if (strcmp(cmd, "ls") == 0)
     {

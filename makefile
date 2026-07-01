@@ -1,10 +1,11 @@
 CC = clang
-CFLAGS = -m32 -ffreestanding -fno-stack-protector -g -O1 -Wall -Wextra -target i686-elf -fno-pie -no-pie -mno-sse -mno-sse2 -mno-mmx
+CFLAGS = -Iinclude -m32 -ffreestanding -fno-stack-protector -g -O1 -Wall -Wextra -target i686-elf -fno-pie -no-pie -mno-sse -mno-sse2 -mno-mmx
 LDFLAGS = -m elf_i386
 
 ASM = nasm
 
-OBJS = boot.o kernel.o isrtable.o asmthings.o
+SRCS = $(wildcard kernel/*.c) $(wildcard include/*.c) $(wildcard include/fs/*.c)
+OBJS = boot.o isrtable.o asmthings.o  $(SRCS:.c=.o)
 
 all: os.iso
 
@@ -17,8 +18,8 @@ isrtable.o:
 asmthings.o:
 	$(ASM) -f elf32 kernel/asmthings.asm -o asmthings.o
 
-kernel.o:
-	$(CC) $(CFLAGS) -c kernel/kernel.c -o kernel.o
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 kernel.bin: $(OBJS)
 	ld $(LDFLAGS) -T linker.ld -o kernel.bin $(OBJS)
