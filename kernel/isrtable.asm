@@ -9,6 +9,8 @@ global gpisr ; #GP IRQ
 ; does nothing rn
 isr0:
     pushad
+    extern timer_handler
+    call timer_handler
     mov al, 20h
     out 20h, al
     popad

@@ -6,6 +6,7 @@
 #include "shell.h"
 #include "cpu.h"
 #include "atapio.h"
+#include "time.h"
 
 #if defined(__linux__)
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
@@ -143,6 +144,12 @@ void kernel_main(void)
 	__asm__ __volatile__("lidt %0" : : "m"(idtp));
 	picremap(); // this remaps the PIC
 	__asm__ __volatile__("sti"); // Enable interruptions (VERY IMPORTANT)
+	program_pit(1000); // reprogram the PIT to fire an interrupt every 1000 Hz
+
+	time_t t; // set up the clock
+	get_rtc_time(&t);
+	uint32_t s = time_t_to_timestamp(&t);
+	set_time(s);
 
 	// Post-boot
 	printf("EOSP booted successfully\n");
@@ -251,5 +258,14 @@ void isr1_handler()
 			cmd[pos++] = c;
 			printf("%c", c);
 		}
+	}
+}
+
+void timer_handler()
+{
+	inc_uptime();
+	if (uptime % 1000 == 0)
+	{
+		set_time(sys_timestamp+1);
 	}
 }

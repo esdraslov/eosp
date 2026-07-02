@@ -1,10 +1,11 @@
 #include "ext2.h"
-#include "ext.h"
-#include <cstdint>
-#include <stdint.h>
 
 void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPartition *part)
 {
+    time_t t;
+    get_rtc_time(&t);
+    uint32_t stamp = time_t_to_timestamp(&t);
+
     struct ext_sb block;
     memset(&block, 0, sizeof(struct ext_sb));
 
@@ -18,9 +19,7 @@ void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPa
     block.inodes_per_group = min(8192, block.inodes_count);
     block.free_blocks = block.blocks_count; // not sure how many metadata blocks yet
     block.free_inodes = block.inodes_count - 1;
-    // struct rtc_time t;
-    // get_rtc_time(&t);
-    block.wtime = 1772391600;
+    block.wtime = stamp;
     block.first_data_block = 1;
 
     uint16_t fhalf[256];
@@ -78,13 +77,37 @@ void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPa
     inode_table[1].links_count = 2;
     inode_table[1].blocks = 2;
     inode_table[1].block[0] = metadata;
-    ata_write_sectors(drive.drive_id, start_lba+offset, (uint16_t *)inode_table);
+
+    inode_table[1].atime = stamp;
+    inode_table[1].ctime = stamp;
+    inode_table[1].mtime = stamp;
+
+    ata_write_sectors(drive.drive_id, start_lba+offset, 2, (uint16_t *)inode_table);
 
     memset(&inode_table, 0, sizeof(inode_table));
 
     for (int i = 1; i < inode_table_size; i++)
     {
         offset += 2;
-        ata_write_sectors(drive.drive_id, start_lba+offset, (uint16_t *)inode_table);
+        ata_write_sectors(drive.drive_id, start_lba+offset, 2, (uint16_t *)inode_table);
     }
+
+    uint8_t dir_b[1024] = {0};
+    uint32_t o = 0;
+
+    struct ext2_dir_entry *f = (struct ext2_dir_entry *)&dir_b[o];
+    f->inode = 2;
+    f->name_len = 1;
+    f->file_type = 2;
+    strcpy(f->name, ".");
+    f->rec_len = 12;
+    o += 12;
+
+    struct ext2_dir_entry *ff = (struct ext2_dir_entry *)&dir_b[o];
+    ff->inode = 2;
+    ff->name_len = 2;
+    ff->file_type = 2;
+    strcpy(ff->name, "..");
+    ff->rec_len = 12;
+    o += 12;
 }

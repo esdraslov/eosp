@@ -6,6 +6,7 @@
 #include "atapio.h"
 #include "fdisking.h"
 #include "fs/vfs.h"
+#include "time.h"
 
 static struct file fbuffer[128];
 
@@ -80,6 +81,8 @@ static inline void process_command(char *cmdl)
         printf("read <lba> - reads the first sector of lba <lba> and prints the result\n");
         printf("write <lba> <text> - does nothing\n");
         printf("fdisk - tool to manage partitions\n");
+        printf("mkfs - tool to format partitions\n");
+        printf("timedate - gets the time and date\n");
     } else if (strcmp(cmd, "reboot") == 0)
     {
         reboot();
@@ -220,6 +223,11 @@ static inline void process_command(char *cmdl)
             bool r = read_file_fat16(fbuffer[i], (void *)buffer, 256, 0);
             printf("[%s] %s\n", r ? "T" : "F", buffer);
         }
+    } else if (strcmp(cmd, "timedate") == 0)
+    {
+        time_t t;
+        timestamp_to_time_t(sys_timestamp, &t);
+        printf("%d/%d/%d %d:%d:%d\n", t.month, t.day, t.year, t.hours, t.minutes, t.seconds);
     }
 }   
 #endif

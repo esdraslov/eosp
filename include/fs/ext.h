@@ -1,5 +1,5 @@
 #ifndef EXT_H
-#define EXT_h
+#define EXT_H
 
 #include <stdint.h>
 #define COMPAT_DIR_PREALLOC 0x1
