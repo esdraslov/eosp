@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include "ext.h"
 #include "time.h"
+#include "stdlib.h"
 
 struct ext2_bgd {
     uint32_t block_bitmap;
@@ -39,5 +40,7 @@ enum ext2_creatoros {
 };
 
 void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPartition *part);
+
+void list_root_dir_ext2(partitionid_t part, struct file *buff);
 
 #endif

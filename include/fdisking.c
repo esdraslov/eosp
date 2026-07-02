@@ -1,4 +1,5 @@
 #include "fdisking.h"
+#include "fs/vfs.h"
 
 void init_mbr(uint8_t drive_id)
 {
@@ -77,5 +78,13 @@ void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs)
     else if (fs == ext2)
     {
         format_partition_ext2(p, start_lba, part);
+    }
+}
+
+void list_root_dir(partitionid_t part, struct file *fbuffer, enum filesystem fs)
+{
+    if (fs == ext2)
+    {
+        list_root_dir_ext2(part, fbuffer);
     }
 }

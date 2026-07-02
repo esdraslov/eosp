@@ -7,6 +7,7 @@
 #include "fdisking.h"
 #include "fs/vfs.h"
 #include "time.h"
+#include "fs/ext2.h"
 
 static struct file fbuffer[128];
 
@@ -141,7 +142,7 @@ static inline void process_command(char *cmdl)
             int architect = detect_architect(drive_id);
             if (architect == -1)
             {
-                printf("UNINITIALIZED DISK");
+                printf("UNINITIALIZED DISK\n");
             } else if (architect == 0)
             {
                 uint8_t slot = atoi(argv[3]);
@@ -177,12 +178,12 @@ static inline void process_command(char *cmdl)
         }
     } else if (strcmp(cmd, "ls") == 0)
     {
-        memset(fbuffer, 0, 4160);
+        memset(fbuffer, 0, sizeof(struct file)*128);
 
         partitionid_t part = str_partid(argv[1]);
         // if (strcmp(argv[2], "fat16"))
         // {
-        list_dir_fat16(part, fbuffer);
+        list_root_dir_ext2(part, fbuffer);
         // }
 
         for (int i = 0; i < 128; i++)

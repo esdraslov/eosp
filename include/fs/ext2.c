@@ -1,11 +1,8 @@
 #include "ext2.h"
+#include <stdbool.h>
 
 void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPartition *part)
 {
-    time_t t;
-    get_rtc_time(&t);
-    uint32_t stamp = time_t_to_timestamp(&t);
-
     struct ext_sb block;
     memset(&block, 0, sizeof(struct ext_sb));
 
@@ -19,11 +16,11 @@ void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPa
     block.inodes_per_group = min(8192, block.inodes_count);
     block.free_blocks = block.blocks_count; // not sure how many metadata blocks yet
     block.free_inodes = block.inodes_count - 1;
-    block.wtime = stamp;
+    block.wtime = sys_timestamp;
     block.first_data_block = 1;
 
-    uint16_t fhalf[256];
-    memcpy(&fhalf, &block, 512);
+    // uint16_t fhalf[256];
+    // memcpy(&fhalf, &block, 512);
     // ata_write_sector(drive.drive_id, start_lba+2, fhalf); // write later
 
     struct ext2_bgd bgd; // TODO: Make this initialize every single block group
@@ -78,14 +75,14 @@ void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPa
     inode_table[1].blocks = 2;
     inode_table[1].block[0] = metadata;
 
-    inode_table[1].atime = stamp;
-    inode_table[1].ctime = stamp;
-    inode_table[1].mtime = stamp;
+    inode_table[1].atime = sys_timestamp;
+    inode_table[1].ctime = sys_timestamp;
+    inode_table[1].mtime = sys_timestamp;
 
     ata_write_sectors(drive.drive_id, start_lba+offset, 2, (uint16_t *)inode_table);
 
     memset(&inode_table, 0, sizeof(inode_table));
-
+ 
     for (int i = 1; i < inode_table_size; i++)
     {
         offset += 2;
@@ -110,4 +107,58 @@ void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPa
     strcpy(ff->name, "..");
     ff->rec_len = 12;
     o += 12;
+
+    ata_write_sectors(drive.drive_id, start_lba + (metadata * 2), 2, (uint16_t *)&dir_b);
+    ata_write_sectors(drive.drive_id, start_lba+2, 2, (uint16_t *)&block);
+}
+
+void list_root_dir_ext2(partitionid_t part, struct file *buff)
+{
+    printf("mbr\n");
+    uint16_t pbuffer[256];
+    ata_read_sector(part.drive_id, 0, pbuffer);
+
+    uint32_t buffer_index = 223 + (part.partition * 8);
+    struct MBRPartition *mbrpart = (struct MBRPartition *)&pbuffer[buffer_index];
+
+    uint16_t buffer[512];
+    ata_read_sectors(part.drive_id, mbrpart->lba_start+4, 2, buffer); // assuming a block is 2 sectors long
+    struct ext2_bgd *bgd = (struct ext2_bgd *)&buffer;
+
+    printf("table bgd inode_table: %d\n", bgd->inode_table);
+    struct ext_inode table[8];
+    ata_read_sectors(part.drive_id, mbrpart->lba_start+(bgd->inode_table*2), 2, (uint16_t *)&table);
+    uint32_t root_dir_block = table[1].block[0];
+    printf("block: %d\n", root_dir_block);
+    uint32_t rd_lba = mbrpart->lba_start+root_dir_block*2;
+    uint8_t rd[1024];
+    ata_read_sectors(part.drive_id, rd_lba, 2, (uint16_t *)&rd);
+
+    printf("loop\n");
+    uint32_t offset = 0;
+    uint16_t i = 0;
+    while (offset < 1024)
+    {
+        struct ext2_dir_entry *e = (struct ext2_dir_entry *)&(rd[offset]);
+        
+        if (e->rec_len == 0)
+            break;
+
+        if (e->inode != 0)
+        {
+            char s_name[256];
+            memcpy(s_name, e->name, e->name_len);
+            s_name[e->name_len] = '\0';
+            printf("%s\n", s_name);
+
+            strcpy(buff[i].filename, s_name);
+            buff[i].isdir = e->file_type == 2 ? true : false;
+            buff[i].starting_lba = mbrpart->lba_start+(bgd->inode_table*2);
+            buff[i].offset = offset;
+            buff[i].partition = part;
+            i++;
+        }
+
+        offset += e->rec_len;
+    }
 }

@@ -28,4 +28,6 @@ int detect_architect(uint8_t drive_id);
 
 void format_partition_mbr(uint8_t drive_id, uint8_t slot, enum filesystem fs);
 
+void list_root_dir(partitionid_t part, struct file *fbuffer, enum filesystem fs);
+
 #endif
