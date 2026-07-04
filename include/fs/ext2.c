@@ -65,7 +65,7 @@ void format_partition_ext2(partitionid_t drive, uint32_t start_lba, struct MBRPa
     ata_write_sectors(drive.drive_id, start_lba+8, 2, (uint16_t *)&inode_bitmap);
 
 
-    uint32_t offset = 10;
+    uint32_t offset = metadata*2;
 
     struct ext_inode inode_table[8];
     memset(&inode_table, 0, sizeof(inode_table));
