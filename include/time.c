@@ -1,6 +1,6 @@
 #include "time.h"
 
-uint32_t sys_timestamp;
+int32_t sys_timestamp;
 uint32_t uptime;
 
 uint8_t bcd_int(uint8_t bcd)
@@ -66,7 +66,7 @@ void program_pit(uint32_t freq)
     outb(0x40, (uint8_t)((d >> 8) & 0xFF));
 }
 
-void set_time(uint32_t timestamp)
+void set_time(int32_t timestamp)
 {
     sys_timestamp = timestamp;
 }

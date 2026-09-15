@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "ports.h"
 
-extern uint32_t sys_timestamp;
+extern int32_t sys_timestamp;
 extern uint32_t uptime;
 
 uint8_t bcd_int(uint8_t bcd);
@@ -27,7 +27,7 @@ uint32_t time_t_to_timestamp(time_t *t);
 
 void program_pit(uint32_t freq);
 
-void set_time(uint32_t timestamp);
+void set_time(int32_t timestamp);
 
 void inc_uptime();
 

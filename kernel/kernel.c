@@ -128,8 +128,18 @@ volatile bool pending = false;
 volatile bool shift_state = false;
 volatile bool caps_state = false;
 
-void kernel_main(void) 
+void kernel_main(uint32_t magic, multiboot_info_t *mb) 
 {
+	char* cmdline;
+	if (magic != 0x2BADB002)
+		return;
+	if (mb->flags & (1 << 2))
+	{
+		cmdline = (char *)mb->cmdline;
+	} else {
+		cmdline = "";
+	}
+
 	terminal_initialize();
 	// Set IDT and GDT
 	__asm__ __volatile__("cli"); // Disable interruptions (maybe important?)
@@ -153,6 +163,7 @@ void kernel_main(void)
 
 	// Post-boot
 	printf("EOSP booted successfully\n");
+	printf("Kernel parameters: %s\n", cmdline);
 	printf("> ");
 
 	while(1)
@@ -267,5 +278,13 @@ void timer_handler()
 	if (uptime % 1000 == 0)
 	{
 		set_time(sys_timestamp+1);
+	}
+	if (uptime % 60000 == 0)
+	{
+		// resync the clock
+		time_t t;
+		get_rtc_time(&t);
+		uint32_t s = time_t_to_timestamp(&t);
+		set_time(s);
 	}
 }

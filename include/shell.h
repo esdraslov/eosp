@@ -175,6 +175,16 @@ static inline void process_command(char *cmdl)
             {
                 printf("UNINITIALIZED DISK");
             } 
+        } else if (strcmp(argv[1], "eosfs") == 0)
+        {
+            if (architect == 0)
+            {
+                //uint8_t slot = atoi(argv[3]);
+                format_partition_mbr(part.drive_id, part.partition, eosfs);
+            } else if (architect == -1)
+            {
+                printf("UNINITIALIZED DISK");
+            } 
         }
     } else if (strcmp(cmd, "ls") == 0)
     {
@@ -183,7 +193,7 @@ static inline void process_command(char *cmdl)
         partitionid_t part = str_partid(argv[1]);
         // if (strcmp(argv[2], "fat16"))
         // {
-        list_root_dir_ext2(part, fbuffer);
+        list_root_dir(part, fbuffer, eosfs);
         // }
 
         for (int i = 0; i < 128; i++)

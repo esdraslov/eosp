@@ -4,6 +4,7 @@
 #include "atapio.h"
 #include "fs/ext2.h"
 #include "fs/fat16.h"
+#include "fs/eosfs.h"
 #include "math.h"
 #include "stdlib.h"
 #include "fs/vfs.h"
@@ -17,7 +18,8 @@ struct partition_info {
 
 enum filesystem {
     fat16,
-    ext2
+    ext2,
+    eosfs
 };
 
 void init_mbr(uint8_t drive_id);
