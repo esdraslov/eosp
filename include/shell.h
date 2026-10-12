@@ -1,6 +1,7 @@
 #ifndef SHELL_H
 #define SHELL_H
 
+#include "fs/eosfs.h"
 #include "stdlib.h"
 #include "ports.h"
 #include "atapio.h"
@@ -208,7 +209,7 @@ static inline void process_command(char *cmdl)
     {
         memset(fbuffer, 0, 4160);
         partitionid_t part = str_partid(argv[1]);
-        list_dir_fat16(part, fbuffer);
+        list_root_dir_eosfs(part, fbuffer);
 
         bool found = false;
         int i;
@@ -225,13 +226,13 @@ static inline void process_command(char *cmdl)
         }
         if (!found)
         {
-            printf("FILE %s NOT FOUND", argv[2]);
+            printf("FILE %s NOT FOUND\n", argv[2]);
         } else
         {
             char buffer[513] = {'\0'};
             int skip = 0;
 
-            bool r = read_file_fat16(fbuffer[i], (void *)buffer, 256, 0);
+            bool r = read_file_eosfs(fbuffer[i], (void *)buffer, 256, 0);
             printf("[%s] %s\n", r ? "T" : "F", buffer);
         }
     } else if (strcmp(cmd, "timedate") == 0)
